@@ -26,6 +26,7 @@
 #include "sakura_rc.h"/// IDD_EXITTING 2002/2/10 aroka ヘッダー整理
 #include "config/system_constants.h"
 #include "apiwrap/DarkMode.h"
+#include "apiwrap/ModernUI.h"
 
 //-------------------------------------------------
 
@@ -169,6 +170,9 @@ bool CControlProcess::InitializeProcess()
 
 	/* ダークモード設定を反映する */
 	ApplyDarkModeSetting(GetDllShareData().m_Common.m_sWindow.m_bDarkMode);
+
+	/* モダンUI設定を反映する */
+	ModernUI::ApplyModernUISetting(GetDllShareData().m_Common.m_sWindow.m_bModernUI);
 
 	/* 言語を選択する */
 	CSelectLang::ChangeLang( GetDllShareData().m_Common.m_sWindow.m_szLanguageDll );

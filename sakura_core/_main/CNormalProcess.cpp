@@ -38,6 +38,7 @@
 #include "plugin/CJackManager.h"
 #include "CAppMode.h"
 #include "apiwrap/DarkMode.h"
+#include "apiwrap/ModernUI.h"
 #include "env/CDocTypeManager.h"
 #include "apiwrap/StdApi.h"
 #include "CSelectLang.h"
@@ -104,6 +105,9 @@ bool CNormalProcess::InitializeProcess()
 
 	/* ダークモード設定を反映する */
 	ApplyDarkModeSetting(GetDllShareData().m_Common.m_sWindow.m_bDarkMode);
+
+	/* モダンUI設定を反映する */
+	ModernUI::ApplyModernUISetting(GetDllShareData().m_Common.m_sWindow.m_bModernUI);
 
 	/* 言語を選択する */
 	CSelectLang::ChangeLang( GetDllShareData().m_Common.m_sWindow.m_szLanguageDll );

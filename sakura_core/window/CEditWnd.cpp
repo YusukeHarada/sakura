@@ -600,10 +600,9 @@ HWND CEditWnd::Create(
 	if(!hWnd)return nullptr;
 	m_hWnd = hWnd;
 
+	// モダンUI設定 (角丸/Mica) は ModernUI::ApplyModernUISetting() で
+	// darkmodelib 側に設定済みなので、ここで一緒に適用される
 	DarkMode::setDarkTitleBarEx(hWnd, true);
-
-	/* モダンUI設定を反映する */
-	ModernUI::ApplyToWindow(hWnd, m_pShareData->m_Common.m_sWindow.m_bModernUI);
 
 	// 初回アイドリング検出用のゼロ秒タイマーをセットする	// 2008.04.19 ryoji
 	// ゼロ秒タイマーが発動（初回アイドリング検出）したら MYWM_FIRST_IDLE を起動元プロセスにポストする。
@@ -1638,8 +1637,9 @@ LRESULT CEditWnd::DispatchEvent(
 			}
 
 			/* モダンUI設定を反映する */
-			// DWM属性の設定は冪等なので、変化の有無を問わず適用してよい
-			ModernUI::ApplyToWindow(GetHwnd(), m_pShareData->m_Common.m_sWindow.m_bModernUI);
+			// 設定と適用はいずれも冪等なので、変化の有無を問わず実行してよい
+			ModernUI::ApplyModernUISetting( m_pShareData->m_Common.m_sWindow.m_bModernUI );
+			DarkMode::setDarkTitleBarEx( GetHwnd(), true );
 
 			/* 言語を選択する */
 			CSelectLang::ChangeLang( GetDllShareData().m_Common.m_sWindow.m_szLanguageDll );
