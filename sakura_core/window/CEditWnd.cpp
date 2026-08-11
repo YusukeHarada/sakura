@@ -59,6 +59,7 @@
 #include "recent/CRecentFile.h"
 #include "recent/CRecentFolder.h"
 #include "apiwrap/DarkMode.h"
+#include "apiwrap/ModernUI.h"
 
 #include "macro/CMacroFactory.h"
 #include "view/colors/CColorStrategy.h"
@@ -600,6 +601,9 @@ HWND CEditWnd::Create(
 	m_hWnd = hWnd;
 
 	DarkMode::setDarkTitleBarEx(hWnd, true);
+
+	/* モダンUI設定を反映する */
+	ModernUI::ApplyToWindow(hWnd, m_pShareData->m_Common.m_sWindow.m_bModernUI);
 
 	// 初回アイドリング検出用のゼロ秒タイマーをセットする	// 2008.04.19 ryoji
 	// ゼロ秒タイマーが発動（初回アイドリング検出）したら MYWM_FIRST_IDLE を起動元プロセスにポストする。
@@ -1632,6 +1636,10 @@ LRESULT CEditWnd::DispatchEvent(
 					m_cStatusBar.DestroyStatusBar();
 				}
 			}
+
+			/* モダンUI設定を反映する */
+			// DWM属性の設定は冪等なので、変化の有無を問わず適用してよい
+			ModernUI::ApplyToWindow(GetHwnd(), m_pShareData->m_Common.m_sWindow.m_bModernUI);
 
 			/* 言語を選択する */
 			CSelectLang::ChangeLang( GetDllShareData().m_Common.m_sWindow.m_szLanguageDll );
