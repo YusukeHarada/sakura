@@ -59,6 +59,7 @@
 #include "recent/CRecentFile.h"
 #include "recent/CRecentFolder.h"
 #include "apiwrap/DarkMode.h"
+#include "apiwrap/ModernUI.h"
 
 #include "macro/CMacroFactory.h"
 #include "view/colors/CColorStrategy.h"
@@ -599,6 +600,8 @@ HWND CEditWnd::Create(
 	if(!hWnd)return nullptr;
 	m_hWnd = hWnd;
 
+	// モダンUI設定 (角丸/Mica) は ModernUI::ApplyModernUISetting() で
+	// darkmodelib 側に設定済みなので、ここで一緒に適用される
 	DarkMode::setDarkTitleBarEx(hWnd, true);
 
 	// 初回アイドリング検出用のゼロ秒タイマーをセットする	// 2008.04.19 ryoji
@@ -1632,6 +1635,11 @@ LRESULT CEditWnd::DispatchEvent(
 					m_cStatusBar.DestroyStatusBar();
 				}
 			}
+
+			/* モダンUI設定を反映する */
+			// 設定と適用はいずれも冪等なので、変化の有無を問わず実行してよい
+			ModernUI::ApplyModernUISetting( m_pShareData->m_Common.m_sWindow.m_bModernUI );
+			DarkMode::setDarkTitleBarEx( GetHwnd(), true );
 
 			/* 言語を選択する */
 			CSelectLang::ChangeLang( GetDllShareData().m_Common.m_sWindow.m_szLanguageDll );

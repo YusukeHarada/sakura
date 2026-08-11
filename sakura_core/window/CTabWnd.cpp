@@ -1244,6 +1244,48 @@ LRESULT CTabWnd::OnMeasureItem( HWND hwnd, [[maybe_unused]] UINT uMsg, [[maybe_u
 	return 0L;
 }
 
+/*!	モダンUIのタブ背景を描画する
+
+	Windows 11 世代のタブ（Edge や Windows Terminal）に倣い、
+	選択タブは上端だけを丸めた矩形で編集領域と同じ地色に塗り、
+	非選択タブは枠線を持たないフラットな見た目にする。
+
+	@param gr			描画対象
+	@param rcItem		タブの矩形
+	@param bSelected	選択中のタブか
+	@param bHover		マウスが載っているタブか
+	@return タブに載せる文字色
+*/
+static COLORREF DrawModernTabBackground( CGraphics& gr, const RECT& rcItem, bool bSelected, bool bHover )
+{
+	const bool bDark = IsDarkModeActive();
+
+	// タブ列の地色
+	const COLORREF clrStrip    = bDark? DarkMode::getDlgBackgroundColor(): ::GetSysColor( COLOR_BTNFACE );
+	// 選択タブの地色（編集領域と地続きに見せる）
+	const COLORREF clrSelected = bDark? DarkMode::getCtrlBackgroundColor(): ::GetSysColor( COLOR_WINDOW );
+	// ホバー時の地色
+	const COLORREF clrHot      = bDark? DarkMode::getHotBackgroundColor(): ::GetSysColor( COLOR_BTNHIGHLIGHT );
+	const COLORREF clrText     = bDark? DarkMode::getTextColor(): ::GetSysColor( COLOR_BTNTEXT );
+
+	::MyFillRect( gr, rcItem, clrStrip );
+
+	if( !bSelected && !bHover ){
+		return clrText;
+	}
+
+	const COLORREF clrFill = bSelected? clrSelected: clrHot;
+
+	// 上端だけを丸めたいので、下端を角丸半径ぶん外へはみ出させた角丸矩形を描く。
+	// はみ出した部分は矩形の外なので、見えるのは上側の丸みだけになる。
+	const int nRadius = DpiScaleX( 6 );
+	gr.SetPen( clrFill );
+	gr.SetBrushColor( clrFill );
+	::RoundRect( gr, rcItem.left, rcItem.top, rcItem.right, rcItem.bottom + nRadius, nRadius, nRadius );
+
+	return clrText;
+}
+
 /*!	WM_DRAWITEM処理
 	@date 2006.02.01 ryoji 新規作成
 	@date 2012.04.14 syat タブのオーナードロー追加
@@ -1335,9 +1377,13 @@ LRESULT CTabWnd::OnDrawItem( [[maybe_unused]] HWND hwnd, [[maybe_unused]] UINT u
 		RECT rcFullItem(rcItem);
 
 		// 状態に従ってテキストと背景色を決める
+		const bool bModernUI = m_pShareData->m_Common.m_sWindow.m_bModernUI != FALSE;
+		COLORREF clrModernText = 0;
 
 		// 背景描画
-		if( !IsVisualStyle() ) {
+		if( bModernUI ) {
+			clrModernText = DrawModernTabBackground( gr, rcItem, bSelected, nTabIndex == m_nTabHover );
+		}else if( !IsVisualStyle() ) {
 			::MyFillRect( gr, rcItem, COLOR_BTNFACE );
 		}else{
 			int iPartId = TABP_TABITEM;
@@ -1392,7 +1438,8 @@ LRESULT CTabWnd::OnDrawItem( [[maybe_unused]] HWND hwnd, [[maybe_unused]] UINT u
 			}
 		}
 
-		rcItem.left += DpiScaleX(4) + (bSelected ? DpiScaleX(4) : 0);
+		// モダンUIでは選択タブも同じ矩形に描くので、選択状態による字下げを行わない
+		rcItem.left += DpiScaleX(4) + ((bSelected && !bModernUI) ? DpiScaleX(4) : 0);
 
 		// アイコン描画
 		int cxIcon = CX_SMICON;
@@ -1404,18 +1451,20 @@ LRESULT CTabWnd::OnDrawItem( [[maybe_unused]] HWND hwnd, [[maybe_unused]] UINT u
 			{
 				int top = rcItem.top + ( rcItem.bottom - rcItem.top - cyIcon ) / 2 - 1;
 				ImageList_Draw( m_hIml, item.iImage, lpdis->hDC, rcItem.left,
-					top + (bSelected ? 0 : DpiScaleY(3)), ILD_TRANSPARENT );
+					top + ((bSelected || bModernUI) ? 0 : DpiScaleY(3)), ILD_TRANSPARENT );
 				rcItem.left += cxIcon + DpiScaleX(6);
 			}
 		}
 
 		// テキスト描画
 		COLORREF clrText;
-		clrText = ::GetSysColor(COLOR_MENUTEXT);
+		clrText = bModernUI? clrModernText: ::GetSysColor(COLOR_MENUTEXT);
 		gr.PushTextForeColor( clrText );
 		gr.SetTextBackTransparent(true);
 		RECT rcText = rcItem;
-		rcText.top += (bSelected ? 0 : DpiScaleY(5)) - DpiScaleY(1);
+		if( !bModernUI ){
+			rcText.top += (bSelected ? 0 : DpiScaleY(5)) - DpiScaleY(1);
+		}
 
 		// テキスト矩形は最大でもタブを閉じるボタンの左端までに切り詰める
 		// タブを閉じるボタンの矩形は他の箇所と同様 TabCtrl_GetItemRect の矩形から取得（lpdis->rcItem の矩形だと若干ずれる）
@@ -2295,8 +2344,9 @@ void CTabWnd::LayoutTab( void )
 	}
 
 	// オーナードロー状態を共通設定に追随させる
+	// モダンUIではタブを自前で描画するため、常にオーナードローにする
 	BOOL bDispTabClose = m_pShareData->m_Common.m_sTabBar.m_bDispTabClose;
-	BOOL bOwnerDraw = bDispTabClose;
+	BOOL bOwnerDraw = bDispTabClose || m_pShareData->m_Common.m_sWindow.m_bModernUI;
 	if( bOwnerDraw && !(lStyle & TCS_OWNERDRAWFIXED) ){
 		lStyle |= TCS_OWNERDRAWFIXED;
 	}else if( !bOwnerDraw && (lStyle & TCS_OWNERDRAWFIXED) ){

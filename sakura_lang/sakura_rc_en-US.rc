@@ -1102,6 +1102,7 @@ BEGIN
     CONTROL         "Horizontal Scrollba&r",IDC_CHECK_bScrollBarHorz,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,104,13,89,10
     CONTROL         "Menu &Icon",IDC_CHECK_bMenuIcon,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,195,13,87,10
     CONTROL         "&Dark Mode",IDC_CHECK_bDarkMode,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,104,25,89,10
+    CONTROL         "&Modern UI",IDC_CHECK_bModernUI,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,202,37,83,10
     PUSHBUTTON      "&Window pos && size...",IDC_BUTTON_WINSIZE,202,25,83,14
     LTEXT           "NB: Tab-Bar display\nis in the tab bar tab",IDC_STATIC,111,37,83,17
     GROUPBOX        "Basic Settings",IDC_STATIC,3,3,285,52,WS_GROUP

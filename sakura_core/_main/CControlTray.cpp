@@ -56,6 +56,7 @@
 #include "config/system_constants.h"
 #include "config/app_constants.h"
 #include "apiwrap/DarkMode.h"
+#include "apiwrap/ModernUI.h"
 
 #define ID_HOTKEY_TRAYMENU	0x1234
 
@@ -762,6 +763,8 @@ LRESULT CControlTray::DispatchEvent(
 			if( (GetDllShareData().m_Common.m_sWindow.m_bDarkMode != FALSE) != IsDarkModeActive() ){
 				ApplyDarkModeSetting(GetDllShareData().m_Common.m_sWindow.m_bDarkMode);
 			}
+			/* モダンUI設定を反映する */
+			ModernUI::ApplyModernUISetting(GetDllShareData().m_Common.m_sWindow.m_bModernUI);
 			{
 				bool bChangeLang = wcscmp( GetDllShareData().m_Common.m_sWindow.m_szLanguageDll, m_szLanguageDll ) != 0;
 				m_szLanguageDll = GetDllShareData().m_Common.m_sWindow.m_szLanguageDll;

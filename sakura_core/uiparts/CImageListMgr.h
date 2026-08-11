@@ -100,8 +100,11 @@ protected:
 	LONG m_bmpHeight = 0;
 	HDC m_hDC;
 
-	//! ツールイメージをリサイズする
-	HBITMAP ResizeToolIcons( HBITMAP hRscbmp, uint32_t*& pBits, LONG& bmpWidth, LONG& bmpHeight, COLORREF& clrTransparent ) const noexcept;
+	/*! ツールイメージをリサイズする
+		@param [in] bHasAlpha 元画像が本物のアルファチャンネルを持つ場合 true。
+			true のときは (0,0) の色を透過色とみなす色キー変換を行わない。
+	*/
+	HBITMAP ResizeToolIcons( HBITMAP hRscbmp, uint32_t*& pBits, LONG& bmpWidth, LONG& bmpHeight, COLORREF& clrTransparent, bool bHasAlpha = false ) const noexcept;
 
 	//! ビットマップを一行拡張する
 	void Extend(bool = true);

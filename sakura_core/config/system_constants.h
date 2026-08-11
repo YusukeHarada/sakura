@@ -549,7 +549,7 @@
 	-- バージョン1000以降を本家統合までの間、使わせてください。かなり頻繁に構成が変更されると思われるので。by kobake 2008.03.02
 
 */
-#define N_SHAREDATA_VERSION		182
+#define N_SHAREDATA_VERSION		183
 #define STR_SHAREDATA_VERSION	NUM_TO_STR(N_SHAREDATA_VERSION)
 #define	GSTR_SHAREDATA	(L"SakuraShareData" _T(CON_SKR_MACHINE_SUFFIX_) _T(_CODE_SUFFIX_) _T(_DEBUG_SUFFIX_) _T(STR_SHAREDATA_VERSION))
 
@@ -609,6 +609,7 @@ inline constexpr std::wstring_view GSTR_EVENT_SAKURA_EP_INITIALIZED = L"EventSak
 #define FN_APP_ICON  L"my_appicon.ico"
 #define FN_GREP_ICON L"my_grepicon.ico"
 #define FN_TOOL_BMP  L"my_icons.bmp"
+#define FN_TOOL_PNG  L"my_icons.png"	//!< 真のアルファチャンネルを持つツールアイコン（BMPより優先）
 
 //	標準アプリケーションアイコンリソース名
 #define ICON_DEFAULT_APP IDI_ICON_STD

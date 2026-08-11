@@ -1069,6 +1069,7 @@ BEGIN
     CONTROL         "水平スクロールバー(&R)",IDC_CHECK_bScrollBarHorz,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,104,17,89,10
     CONTROL         "アイコン付きメニュー(&I)",IDC_CHECK_bMenuIcon,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,195,17,87,10
     CONTROL         "ダークモード(&D)",IDC_CHECK_bDarkMode,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,104,30,89,10
+    CONTROL         "モダンUI(&M)",IDC_CHECK_bModernUI,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,195,43,89,10
     PUSHBUTTON      "位置と大きさの設定(&W)...",IDC_BUTTON_WINSIZE,195,30,90,14
     LTEXT           "タブバー表示は\n[タブバー]タブにあります",IDC_STATIC,104,43,85,20
     GROUPBOX        "基本設定",IDC_STATIC,3,3,285,70,WS_GROUP
