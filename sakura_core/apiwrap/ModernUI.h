@@ -18,11 +18,26 @@
 */
 #pragma once
 
-#include <dwmapi.h>
-
 #include "apiwrap/DarkMode.h"
 
 namespace ModernUI {
+
+/*! Windows 11 の DWM 設定値
+
+	DWM_WINDOW_CORNER_PREFERENCE / DWM_SYSTEMBACKDROP_TYPE は
+	Windows 11 世代の SDK でしか定義されておらず、たとえば Ubuntu の
+	mingw-w64 が持つ dwmapi.h は DWMWA_PASSIVE_UPDATE_MODE 止まりで
+	これらを持たない。
+
+	darkmodelib 側の設定関数がどちらも UINT を受け取るので、
+	SDK の列挙子には依存せず値を自前で持つ
+	(列挙子名と衝突しないよう別名にしてある)。
+*/
+inline constexpr UINT kCornerDefault = 0;	//!< DWMWCP_DEFAULT      OSに任せる
+inline constexpr UINT kCornerRound   = 2;	//!< DWMWCP_ROUND        角を丸める
+
+inline constexpr UINT kBackdropAuto       = 0;	//!< DWMSBT_AUTO        OSに任せる
+inline constexpr UINT kBackdropMainWindow = 2;	//!< DWMSBT_MAINWINDOW  Mica
 
 /*! モダンUI設定を darkmodelib に反映する
 
@@ -36,13 +51,13 @@ namespace ModernUI {
 inline void ApplyModernUISetting(BOOL bModernUI)
 {
 	// 角丸
-	DarkMode::setRoundCornerConfig(bModernUI ? DWMWCP_ROUND : DWMWCP_DEFAULT);
+	DarkMode::setRoundCornerConfig(bModernUI ? kCornerRound : kCornerDefault);
 
 	// Mica
 	// 編集領域 (CEditView) は背景を不透明に塗り潰すので、
 	// 実際に Mica が見えるのはタイトルバー周辺に限られる。
 	// クライアント領域まで広げる setMicaExtendedConfig() は使わない。
-	DarkMode::setMicaConfig(bModernUI ? DWMSBT_MAINWINDOW : DWMSBT_AUTO);
+	DarkMode::setMicaConfig(bModernUI ? kBackdropMainWindow : kBackdropAuto);
 }
 
 }	// namespace ModernUI
