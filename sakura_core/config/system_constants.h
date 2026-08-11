@@ -609,6 +609,7 @@ inline constexpr std::wstring_view GSTR_EVENT_SAKURA_EP_INITIALIZED = L"EventSak
 #define FN_APP_ICON  L"my_appicon.ico"
 #define FN_GREP_ICON L"my_grepicon.ico"
 #define FN_TOOL_BMP  L"my_icons.bmp"
+#define FN_TOOL_PNG  L"my_icons.png"	//!< 真のアルファチャンネルを持つツールアイコン（BMPより優先）
 
 //	標準アプリケーションアイコンリソース名
 #define ICON_DEFAULT_APP IDI_ICON_STD

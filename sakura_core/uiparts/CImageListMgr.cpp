@@ -19,13 +19,19 @@
 #include "StdAfx.h"
 #include "CImageListMgr.h"
 
+#include <wincodec.h>
+
 #include <cstdint>
+
+#include "cxx/com_pointer.hpp"
 
 #include "env/CommonSetting.h"
 #include "util/module.h"
 #include "debug/CRunningTimer.h"
 #include "sakura_rc.h"
 #include "config/system_constants.h"
+
+#pragma comment(lib, "windowscodecs.lib")
 
 //  2010/06/29 syat MAX_X, MAX_Yの値をCommonSettings.hに移動
 //	Jul. 21, 2003 genta 他でも使うので関数の外に出した
@@ -56,6 +62,72 @@ static void FillSolidRect( HDC hdc, int x, int y, int cx, int cy, COLORREF clr)
 	::SetBkColor( hdc, clr );
 	::SetRect( &rect, x, y, x + cx, y + cy );
 	::ExtTextOut( hdc, 0, 0, ETO_OPAQUE, &rect, nullptr, 0, nullptr );
+}
+
+/*!	PNGのツールアイコンシートを読み込む
+
+	BMP のツールアイコンは (0,0) の色を透過色とする色キー方式のため、
+	アンチエイリアスされた縁が背景色と混ざって縁取りが出てしまう。
+	PNG なら本物のアルファチャンネルをそのまま使える。
+
+	DrawToolIcon() の AlphaBlend が AC_SRC_ALPHA を指定しているので、
+	乗算済みアルファ (32bppPBGRA) で読み込む。
+
+	@param [in]  szPath   PNGファイルのパス
+	@param [out] pBits    DIBセクションのピクセル列
+	@param [out] bmpWidth 画像の幅
+	@param [out] bmpHeight 画像の高さ
+	@return 読み込めた場合はビットマップハンドル、失敗時は nullptr
+*/
+static HBITMAP LoadToolIconsFromPng( const WCHAR* szPath, uint32_t*& pBits, LONG& bmpWidth, LONG& bmpHeight )
+{
+	cxx::com_pointer<IWICImagingFactory> pIWICFactory;
+	HRESULT hr = pIWICFactory.CreateInstance( CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER );
+	if( FAILED(hr) ) return nullptr;
+
+	cxx::com_pointer<IWICBitmapDecoder> pDecoder;
+	hr = pIWICFactory->CreateDecoderFromFilename( szPath, nullptr, GENERIC_READ,
+		WICDecodeMetadataCacheOnLoad, &pDecoder );
+	if( FAILED(hr) ) return nullptr;
+
+	cxx::com_pointer<IWICBitmapFrameDecode> pFrame;
+	hr = pDecoder->GetFrame( 0, &pFrame );
+	if( FAILED(hr) ) return nullptr;
+
+	cxx::com_pointer<IWICFormatConverter> pConverter;
+	hr = pIWICFactory->CreateFormatConverter( &pConverter );
+	if( FAILED(hr) ) return nullptr;
+	hr = pConverter->Initialize( pFrame, GUID_WICPixelFormat32bppPBGRA,
+		WICBitmapDitherTypeNone, nullptr, 0.f, WICBitmapPaletteTypeCustom );
+	if( FAILED(hr) ) return nullptr;
+
+	UINT width = 0, height = 0;
+	hr = pConverter->GetSize( &width, &height );
+	if( FAILED(hr) || 0 == width || 0 == height ) return nullptr;
+
+	BITMAPINFO bmi = {};
+	bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+	bmi.bmiHeader.biWidth = static_cast<LONG>( width );
+	bmi.bmiHeader.biHeight = -static_cast<LONG>( height );	// トップダウン
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 32;
+	bmi.bmiHeader.biCompression = BI_RGB;
+
+	void* pvBits = nullptr;
+	HBITMAP hBitmap = ::CreateDIBSection( nullptr, &bmi, DIB_RGB_COLORS, &pvBits, nullptr, 0 );
+	if( nullptr == hBitmap ) return nullptr;
+
+	const UINT lineStride = 4 * width;
+	hr = pConverter->CopyPixels( nullptr, lineStride, lineStride * height, static_cast<BYTE*>( pvBits ) );
+	if( FAILED(hr) ){
+		::DeleteObject( hBitmap );
+		return nullptr;
+	}
+
+	pBits = static_cast<uint32_t*>( pvBits );
+	bmpWidth = static_cast<LONG>( width );
+	bmpHeight = static_cast<LONG>( height );
+	return hBitmap;
 }
 
 /*! リソースに埋め込まれたmytool.bmpを読み込む
@@ -157,25 +229,32 @@ bool CImageListMgr::Create(HINSTANCE hInstance)
 	}
 
 	HBITMAP	hRscbmp;			//	リソースから読み込んだひとかたまりのBitmap
-
-	//	From Here 2001.7.1 GAE
-	//	2001.7.1 GAE リソースをローカルファイル(sakuraディレクトリ) my_icons.bmp から読めるように
-	// 2007.05.19 ryoji 設定ファイル優先に変更
 	WCHAR szPath[_MAX_PATH];
-	GetInidirOrExedir( szPath, FN_TOOL_BMP );
-	hRscbmp = (HBITMAP)::LoadImage( nullptr, szPath, IMAGE_BITMAP, 0, 0,
-		LR_LOADFROMFILE | LR_CREATEDIBSECTION | LR_LOADMAP3DCOLORS );
 
-	if( hRscbmp == nullptr ) {	// ローカルファイルの読み込み失敗時はリソースから取得
-		//	リソースからBitmapを読み込む
-		//	2003.09.29 wmlhq 環境によってアイコンがつぶれる
-		hRscbmp = LoadMyToolFromModule( hInstance );
-		if( hRscbmp == nullptr ){
-			return false;
+	//	PNG は本物のアルファチャンネルを持つので色キー変換を行わない
+	GetInidirOrExedir( szPath, FN_TOOL_PNG );
+	hRscbmp = LoadToolIconsFromPng( szPath, m_pBits, m_bmpWidth, m_bmpHeight );
+	const bool bHasAlpha = ( hRscbmp != nullptr );
+
+	if( !bHasAlpha ){
+		//	From Here 2001.7.1 GAE
+		//	2001.7.1 GAE リソースをローカルファイル(sakuraディレクトリ) my_icons.bmp から読めるように
+		// 2007.05.19 ryoji 設定ファイル優先に変更
+		GetInidirOrExedir( szPath, FN_TOOL_BMP );
+		hRscbmp = (HBITMAP)::LoadImage( nullptr, szPath, IMAGE_BITMAP, 0, 0,
+			LR_LOADFROMFILE | LR_CREATEDIBSECTION | LR_LOADMAP3DCOLORS );
+
+		if( hRscbmp == nullptr ) {	// ローカルファイルの読み込み失敗時はリソースから取得
+			//	リソースからBitmapを読み込む
+			//	2003.09.29 wmlhq 環境によってアイコンがつぶれる
+			hRscbmp = LoadMyToolFromModule( hInstance );
+			if( hRscbmp == nullptr ){
+				return false;
+			}
 		}
-	}
 
-	hRscbmp = ConvertTo32bppBMP(hRscbmp, m_pBits, m_bmpWidth, m_bmpHeight);
+		hRscbmp = ConvertTo32bppBMP(hRscbmp, m_pBits, m_bmpWidth, m_bmpHeight);
+	}
 
 	//	To Here 2001.7.1 GAE
 
@@ -200,7 +279,7 @@ bool CImageListMgr::Create(HINSTANCE hInstance)
 	m_cy = ::GetSystemMetrics( SM_CYSMICON );
 
 	// アイコンサイズが異なる場合、拡大縮小する
-	hRscbmp = ResizeToolIcons( hRscbmp, m_pBits, m_bmpWidth, m_bmpHeight, m_cTrans );
+	hRscbmp = ResizeToolIcons( hRscbmp, m_pBits, m_bmpWidth, m_bmpHeight, m_cTrans, bHasAlpha );
 	if( hRscbmp == nullptr ){
 		//	リソースからBitmapを読み込む
 		hRscbmp = LoadMyToolFromModule( hInstance );
@@ -211,7 +290,8 @@ bool CImageListMgr::Create(HINSTANCE hInstance)
 		hRscbmp = ConvertTo32bppBMP(hRscbmp, m_pBits, m_bmpWidth, m_bmpHeight);
 
 		// アイコンサイズが異なる場合、拡大縮小する
-		hRscbmp = ResizeToolIcons( hRscbmp, m_pBits, m_bmpWidth, m_bmpHeight, m_cTrans );
+		// フォールバック先はリソースのBMPなので色キー方式に戻る
+		hRscbmp = ResizeToolIcons( hRscbmp, m_pBits, m_bmpWidth, m_bmpHeight, m_cTrans, false );
 		if( hRscbmp == nullptr ){
 			return false;
 		}
@@ -358,7 +438,8 @@ HBITMAP CImageListMgr::ResizeToolIcons(
 	uint32_t*&  pBits,
 	LONG&		bmpWidth,
 	LONG&		bmpHeight,
-	COLORREF&	clrTransparent		//!< [out] 透過色
+	COLORREF&	clrTransparent,		//!< [out] 透過色
+	bool		bHasAlpha			//!< [in]  元画像が本物のアルファチャンネルを持つか
 ) const noexcept
 {
 	// 引数チェック
@@ -382,8 +463,18 @@ HBITMAP CImageListMgr::ResizeToolIcons(
 	const int cols = MAX_X;
 	const int rows = MAX_Y;
 
-	// アイコンサイズは固定。
-	const int cx = 16;
+	// 元シートのアイコンサイズを読み込んだ画像から求める。
+	// 従来の mytool.bmp は 16x16 だが、高解像度のシート（32x32 等）を
+	// 置けば高DPI環境でも拡大せずに済む。拡大と違い縮小は破綻しない。
+	// 想定した升目に割り切れない画像は従来どおり 16x16 として扱う。
+	int cx = 16;
+	if( 0 < di.dsBm.bmWidth && 0 == (di.dsBm.bmWidth % cols) ){
+		const int cxSheet = static_cast<int>( di.dsBm.bmWidth / cols );
+		// 縦横の升目が揃っていることまで確認する
+		if( 0 < cxSheet && di.dsBm.bmHeight == static_cast<LONG>( cxSheet ) * rows ){
+			cx = cxSheet;
+		}
+	}
 	const int cy = cx;
 
 	// 仮想DCを作成
@@ -421,6 +512,10 @@ HBITMAP CImageListMgr::ResizeToolIcons(
 	const int cxSmIcon = m_cx;
 	const int cySmIcon = m_cy;
 	auto setAlpha = [&]() {
+		// 本物のアルファを持つ画像に色キー変換をかけると壊れる
+		if( bHasAlpha ){
+			return;
+		}
 		uint32_t* pixels = pBits;
 		auto clrTrans = pixels[0];
 		for (int j = 0; j < cxSmIcon * cols * cySmIcon * rows; ++j) {
@@ -453,12 +548,19 @@ HBITMAP CImageListMgr::ResizeToolIcons(
 		HGDIOBJ bmpWorkOld = ::SelectObject( hdcWork, bmpWork );
 
 		// 作業DCを透過色で塗りつぶす
-		{
+		// アルファ付きの場合は CreateDIBSection がゼロ初期化した状態
+		// （乗算済みアルファでは完全透過）がそのまま使えるので何もしない
+		if( !bHasAlpha ){
 			HBRUSH hBrush = ::CreateSolidBrush( clrTransparent );
 			HGDIOBJ hBrushOld = ::SelectObject( hdcWork, hBrush );
 			::PatBlt( hdcWork, 0, 0, cxSmIcon * cols, cySmIcon * rows, PATCOPY );
 			::SelectObject( hdcWork, hBrushOld );
 			::DeleteObject( hBrush );
+		}else{
+			// 乗算済みアルファは4成分を線形補間してよいので、
+			// 縮小時は HALFTONE で滑らかにする
+			::SetStretchBltMode( hdcWork, HALFTONE );
+			::SetBrushOrgEx( hdcWork, 0, 0, nullptr );
 		}
 
 		// ざっくり拡大縮小すると位置がずれるので1個ずつ変換する
