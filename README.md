@@ -53,6 +53,16 @@ GitHubで公開しているので [GitHub Actionsのビルドページ](https://
 `sakura.sln`を開いてビルドできます。  
 詳細は [ビルド方法](./tools/build.md) を参照。
 
+### 設計ドキュメント
+
+コードベースの構造については [docs/](./docs/README.md) を参照してください。
+
+| 文書 | 内容 |
+|------|------|
+| [要求仕様書](./docs/requirements.md) | 機能・制約・品質要求 |
+| [アーキテクチャ設計書](./docs/architecture.md) | 全体構造と設計判断 |
+| [コンポーネント設計書](./docs/component-design.md) | 各サブシステムの内部と拡張手順 |
+
 ### Static code analysis
 
 サクラエディタプロジェクトではいくつかの静的解析サービスを利用しています。
